@@ -1,66 +1,59 @@
+name: Train and Deploy CarSales
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
   train:
     runs-on: ubuntu-latest
-    env:
-      PYTHONUNBUFFERED: "1"
-      MPLBACKEND: "Agg"           # headless matplotlib
-      DATA_PATH_HINT: "used_cars.csv"
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Show repo tree (sanity)
-        run: |
-          pwd
-          ls -la
-          find . -maxdepth 3 -type f | sort | sed -n '1,200p'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-      - name: Verify dataset exists
-        run: |
-          test -f "used_cars.csv" || { echo "❌ used_cars.csv not found at repo root"; exit 1; }
-          wc -l used_cars.csv
-          head -5 used_cars.csv
+    - name: Install deps
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt || true
+        pip install jupyter nbconvert scikit-learn pandas numpy mlflow azure-ai-ml
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Azure CLI
+      uses: azure/cli@v2
+      with:
+        inlineScript: |
+          az extension remove -n azure-cli-ml || true
+          az extension add -n ml -y || true
 
-      - name: Install training dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # Use your repo's requirements if present, then ensure notebook tooling
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install jupyter ipykernel nbconvert==7.* nbformat==5.* traitlets==5.* tornado==6.* \
-                      pandas scikit-learn matplotlib mlflow requests
+    - name: Train notebook
+      run: |
+        jupyter nbconvert --to notebook --execute Car_Sales_Clean.ipynb --output output-train.ipynb
 
-      - name: Execute training notebook (with longer timeout)
-        run: |
-          # Produce both an executed notebook and an HTML report you can open in Actions
-          jupyter nbconvert \
-            --to notebook \
-            --execute Car_Sales_Clean.ipynb \
-            --ExecutePreprocessor.timeout=1800 \
-            --output output.ipynb
+    - name: Azure ML deploy (best-effort)
+      if: ${{ secrets.AZ_CLIENT_ID != '' && secrets.AZ_CLIENT_SECRET != '' && secrets.AZ_TENANT_ID != '' }}
+      env:
+        AZURE_CLIENT_ID:     ${{ secrets.AZ_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZ_CLIENT_SECRET }}
+        AZURE_TENANT_ID:     ${{ secrets.AZ_TENANT_ID }}
+        AZURE_SUBSCRIPTION:  ${{ secrets.AZ_SUBSCRIPTION }}
+        AZURE_RG:            Default_Resource_Group
+        AZURE_WS:            GL_AZ_ML
+      run: |
+        echo "Logging in with service principal..."
+        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+        az account set --subscription $AZURE_SUBSCRIPTION
 
-          jupyter nbconvert \
-            --to html \
-            output.ipynb \
-            --output output.html
+        echo "Register model (skip on failure)..."
+        az ml model create --name used_cars_price_prediction_model \
+          --type mlflow_model --path local_model \
+          -g $AZURE_RG --workspace-name $AZURE_WS || true
 
-      - name: List produced artifacts
-        run: |
-          ls -la
-          find . -maxdepth 2 -type f \( -name "local_model*" -o -name "*.csv" -o -name "output.*" \) -print
-
-      - name: Upload training artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: training-artifacts
-          path: |
-            local_model/**
-            feature_importances.csv
-            predictions_test.csv
-            sample_loaded_preds.csv
-            output.ipynb
-            output.html
-          if-no-files-found: warn
+        echo "Deploy/update endpoint (skip on failure)..."
+        az ml online-endpoint create --file endpoint.yml -g $AZURE_RG --workspace-name $AZURE_WS || true
+        az ml online-deployment create --file deploy.yml -g $AZURE_RG --workspace-name $AZURE_WS --set-traffic blue=100 || true

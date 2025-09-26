@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.env
+.venv
+*.egg-info/
+local_model*/
+local_model_eval*/
+downloaded_run_model*/
+sample_loaded_preds.csv
+predictions_test.csv
+feature_importances.csv
+mlruns/
+.azureml/
+.DS_Store
+Thumbs.db

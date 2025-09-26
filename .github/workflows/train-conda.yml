@@ -1,0 +1,14 @@
+name: carsales-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip<=24.3.1
+  - numpy=1.26.4
+  - scikit-learn=1.5.1
+  - pandas
+  - matplotlib
+  - pip:
+    - mlflow==2.22.1
+    - mlflow-skinny==2.22.1
+    - azureml-mlflow==1.60.0.post1

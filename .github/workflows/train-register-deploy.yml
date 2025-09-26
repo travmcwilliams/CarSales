@@ -1,0 +1,221 @@
+name: Train, Register, and Deploy CarSales
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  MODEL_NAME: used_cars_price_prediction_model
+  ENDPOINT_NAME: carsales-endpoint
+  DEPLOYMENT_NAME: blue
+  AZURE_ML_WORKSPACE: ${{ secrets.AZURE_ML_WORKSPACE }}
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute training notebook
+        run: |
+          jupyter nbconvert --to notebook --execute Car_Sales_Clean.ipynb --output output.ipynb
+        # The notebook saves local_model/, predictions_test.csv, etc.
+
+      - name: Upload training artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-artifacts
+          path: |
+            local_model/**
+            feature_importances.csv
+            predictions_test.csv
+            sample_loaded_preds.csv
+          if-no-files-found: warn
+
+  register:
+    runs-on: ubuntu-latest
+    needs: train
+    outputs:
+      model_version: ${{ steps.capture.outputs.model_version }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download training artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: training-artifacts
+          path: ./artifacts
+
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId":"${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId":"${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Install ML extension
+        run: |
+          az extension remove -n azure-cli-ml || true
+          az extension add -n ml -y
+
+      - name: Register MLflow model (new version)
+        id: register
+        run: |
+          set -e
+          echo "Creating/Versioning model from artifacts/local_model..."
+          az ml model create \
+            --name $MODEL_NAME \
+            --type mlflow_model \
+            --path artifacts/local_model \
+            --workspace-name $AZURE_ML_WORKSPACE \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --query version -o tsv > version.txt
+          echo "Registered version: $(cat version.txt)"
+
+      - name: Capture version output
+        id: capture
+        run: echo "model_version=$(cat version.txt)" >> $GITHUB_OUTPUT
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: register
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId":"${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId":"${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Install ML extension
+        run: |
+          az extension remove -n azure-cli-ml || true
+          az extension add -n ml -y
+
+      - name: Write deployment YAML pinned to the new version
+        run: |
+          VERSION="${{ needs.register.outputs.model_version }}"
+          echo "Deploying model version: $VERSION"
+          cat > deploy.pinned.yml <<EOF
+          \$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+          name: ${DEPLOYMENT_NAME}
+          endpoint_name: ${ENDPOINT_NAME}
+          model: azureml:${MODEL_NAME}:${VERSION}
+          instance_type: Standard_DS2_v2
+          instance_count: 1
+          request_settings:
+            request_timeout_ms: 60000
+            max_concurrent_requests_per_instance: 1
+            max_queue_wait_ms: 5000
+          EOF
+          cat deploy.pinned.yml
+
+      - name: Ensure endpoint exists (create if missing)
+        run: |
+          az ml online-endpoint show \
+            --name $ENDPOINT_NAME \
+            --workspace-name $AZURE_ML_WORKSPACE \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            >/dev/null 2>&1 || az ml online-endpoint create \
+              --file endpoint.yml \
+              --workspace-name $AZURE_ML_WORKSPACE \
+              --resource-group $AZURE_RESOURCE_GROUP
+
+      - name: Create or update deployment; route traffic to 100%
+        run: |
+          set -e
+          if az ml online-deployment show \
+              --name $DEPLOYMENT_NAME \
+              --endpoint-name $ENDPOINT_NAME \
+              --workspace-name $AZURE_ML_WORKSPACE \
+              --resource-group $AZURE_RESOURCE_GROUP >/dev/null 2>&1; then
+            echo "Updating existing deployment to pinned model..."
+            az ml online-deployment update \
+              --file deploy.pinned.yml \
+              --workspace-name $AZURE_ML_WORKSPACE \
+              --resource-group $AZURE_RESOURCE_GROUP
+          else
+            echo "Creating deployment..."
+            # Some CLI builds support --set-traffic on create; if not, we'll update traffic next step.
+            if az ml online-deployment create \
+                --file deploy.pinned.yml \
+                --workspace-name $AZURE_ML_WORKSPACE \
+                --resource-group $AZURE_RESOURCE_GROUP \
+                --set-traffic ${DEPLOYMENT_NAME}=100; then
+              echo "Created with traffic=100%"
+            else
+              echo "Create succeeded without traffic; setting traffic via endpoint update…"
+              az ml online-deployment create \
+                --file deploy.pinned.yml \
+                --workspace-name $AZURE_ML_WORKSPACE \
+                --resource-group $AZURE_RESOURCE_GROUP
+            fi
+          fi
+          az ml online-endpoint update \
+            --name $ENDPOINT_NAME \
+            --workspace-name $AZURE_ML_WORKSPACE \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --traffic ${DEPLOYMENT_NAME}=100
+
+      - name: Show scoring URL and test
+        run: |
+          SCORE_URL=$(az ml online-endpoint show \
+            --name $ENDPOINT_NAME \
+            --workspace-name $AZURE_ML_WORKSPACE \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --query scoring_uri -o tsv)
+          echo "Scoring URL: $SCORE_URL"
+          KEY=$(az ml online-endpoint get-credentials \
+            --name $ENDPOINT_NAME \
+            --workspace-name $AZURE_ML_WORKSPACE \
+            --resource-group $AZURE_RESOURCE_GROUP \
+            --query primaryKey -o tsv)
+
+          python - <<'PY'
+          import os, json, requests
+          SCORE_URL = os.environ.get("SCORE_URL")
+          KEY = os.environ.get("KEY")
+          payload = {
+            "input_data": [{
+              "Kilometers_Driven": 50000,
+              "Mileage": 18.5,
+              "Engine": 1500,
+              "Power": 100,
+              "Seats": 5,
+              "Segment": "non-luxury segment"
+            }]
+          }
+          headers = {"Content-Type":"application/json","Authorization":f"Bearer {KEY}"}
+          r = requests.post(SCORE_URL, headers=headers, data=json.dumps(payload), timeout=60)
+          print("Status:", r.status_code)
+          print("Body:", r.text[:500])
+          PY
+        env:
+          SCORE_URL: ${{ steps.scoring_url.outputs.SCORE_URL }}
+          KEY: ${{ steps.scoring_url.outputs.KEY }}
+        continue-on-error: true

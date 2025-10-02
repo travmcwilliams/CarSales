@@ -33,6 +33,14 @@ jobs:
 
     - name: Train notebook
       run: |
+        echo "Current directory: $(pwd)"
+        echo "Listing files:"
+        ls -la
+        echo "Checking data directory:"
+        ls -la data/ || echo "Data directory not found"
+        echo "Checking notebooks directory:"
+        ls -la notebooks/ || echo "Notebooks directory not found"
+        echo "Executing notebook..."
         jupyter nbconvert --to notebook --execute notebooks/CarSales_Complete_Structured.ipynb --output output-train.ipynb
 
     - name: Azure ML deploy (best-effort)

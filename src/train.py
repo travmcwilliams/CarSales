@@ -4,6 +4,8 @@ Model Training Script for Car Sales Price Prediction
 Part of the MLOps pipeline for automated model training and evaluation
 
 CI/CD Validation: This script was modified to demonstrate automated pipeline execution.
+Version: 2.0 - Updated for GitHub Actions CI/CD validation
+Last Modified: 2025-01-02 - Added version tracking for automated deployment
 """
 
 import numpy as np
@@ -204,6 +206,13 @@ def train_model(input_path, output_path):
         return evaluation_results
 
 def main():
+    # Print version for CI/CD validation
+    print("=" * 60)
+    print("Car Sales Price Prediction - Model Training Script")
+    print("Version: 2.0 - CI/CD Validation Update")
+    print("Last Modified: 2025-01-02")
+    print("=" * 60)
+    
     parser = argparse.ArgumentParser(description="Train car sales price prediction model")
     parser.add_argument("--input_data", required=True, help="Path to processed data")
     parser.add_argument("--output_model", required=True, help="Path to save trained model")

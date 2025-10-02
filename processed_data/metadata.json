@@ -1,0 +1,24 @@
+{
+  "original_shape": [
+    200,
+    7
+  ],
+  "processed_shape": [
+    200,
+    7
+  ],
+  "numeric_features": [
+    "Kilometers_Driven",
+    "Mileage",
+    "Engine",
+    "Power",
+    "Seats"
+  ],
+  "categorical_features": [
+    "Segment"
+  ],
+  "target_mean": 34.893275,
+  "target_std": 31.45832193145544,
+  "target_min": 4.36,
+  "target_max": 136.0
+}

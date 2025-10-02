@@ -1,0 +1,20 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: car-sales-training-job
+description: Train Random Forest model for car price prediction
+experiment_name: CarSales
+code: ./src
+command: python train.py --input_data ${{inputs.input_data}} --output_model ${{outputs.output_model}}
+environment: azureml:used-cars-train-env@latest
+compute: azureml:cpu-cluster
+inputs:
+  input_data:
+    type: uri_file
+    path: azureml:used-cars-data@latest
+outputs:
+  output_model:
+    type: uri_folder
+tags:
+  project: CarSales
+  stage: training
+  model_type: RandomForestRegressor

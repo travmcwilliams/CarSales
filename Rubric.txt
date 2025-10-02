@@ -1,0 +1,75 @@
+Criteria
+Building an end-to-end MLOps Pipeline in AzureML Studio
+- Create a MLOps pipeline in AzureML Studio containing the following components
+    - data preprocessing
+    - model training
+    - model tuning and logging using MLflow
+    - model registration
+- Register all the above components into a single pipeline
+- Execute the pipeline
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/17
+Criteria
+Create a GitHub Actions Workflow with the necessary Python scripts and YAML files
+- Download and modify (if needed) the relevant Python scripts (.py files) created previously for the different components of the MLOps pipeline
+- Create the necessary YAML (.yml) files required for the GitHub Actions worflow
+- Put the Python scripts and YAML files in a hierarchical folder structure
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/18
+Criteria
+Execute the GitHub Actions Workflow
+- Set up the necessary credentials to connect Azure and GitHub Actions workflow
+- Execute the GitHub Actions workflow
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/5
+Criteria
+Validate CICD Implementation
+- Update one of the Python scripts (either prep.py or train.py)
+- Commit the changes to the GitHub repo to validate CICD implementation
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/5
+Criteria
+Sample Output
+- A screenshot of the GitHub Actions Workflow
+- A screenshot showing the complete pipeline execution from AzureML Studio
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/5
+Criteria
+Actionable Insights and Recommendations
+- Conclude with the key takeaways (actionable insights and recommendations) for the business
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/2
+Criteria
+Presentation / Notebook - Overall Quality
+- Structure and flow
+- Crispness
+- Visual appeal
+- Github Folder Structure
+
+OR
+
+- Structure and flow
+- Well commented code
+Comments
+Dear Learner
+The solution cannot be followed in detail so a resubmission is required with all the sections clearly differentiated and also the screenshots of the pipeline and workflow clearly added and observations being added in all sections so please look into the rubric and work on the same structured section flow for evaluation
+Points
+0/8

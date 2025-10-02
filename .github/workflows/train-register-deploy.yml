@@ -33,7 +33,7 @@ jobs:
 
     - name: Train notebook
       run: |
-        jupyter nbconvert --to notebook --execute Car_Sales_Clean.ipynb --output output-train.ipynb
+        jupyter nbconvert --to notebook --execute notebooks/CarSales_Complete_Structured.ipynb --output output-train.ipynb
 
     - name: Azure ML deploy (best-effort)
       if: ${{ secrets.AZ_CLIENT_ID != '' && secrets.AZ_CLIENT_SECRET != '' && secrets.AZ_TENANT_ID != '' }}
@@ -55,5 +55,5 @@ jobs:
           -g $AZURE_RG --workspace-name $AZURE_WS || true
 
         echo "Deploy/update endpoint (skip on failure)..."
-        az ml online-endpoint create --file endpoint.yml -g $AZURE_RG --workspace-name $AZURE_WS || true
-        az ml online-deployment create --file deploy.yml -g $AZURE_RG --workspace-name $AZURE_WS --set-traffic blue=100 || true
+        az ml online-endpoint create --file config/endpoint.yml -g $AZURE_RG --workspace-name $AZURE_WS || true
+        az ml online-deployment create --file config/deploy.yml -g $AZURE_RG --workspace-name $AZURE_WS --set-traffic blue=100 || true

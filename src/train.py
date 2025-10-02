@@ -2,6 +2,8 @@
 """
 Model Training Script for Car Sales Price Prediction
 Part of the MLOps pipeline for automated model training and evaluation
+
+CI/CD Validation: This script was modified to demonstrate automated pipeline execution.
 """
 
 import numpy as np

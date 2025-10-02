@@ -36,7 +36,7 @@ jobs:
         jupyter nbconvert --to notebook --execute notebooks/CarSales_Complete_Structured.ipynb --output output-train.ipynb
 
     - name: Azure ML deploy (best-effort)
-      if: ${{ secrets.AZ_CLIENT_ID }}
+      if: ${{ secrets.AZ_CLIENT_ID != '' }}
       env:
         AZURE_CLIENT_ID:     ${{ secrets.AZ_CLIENT_ID }}
         AZURE_CLIENT_SECRET: ${{ secrets.AZ_CLIENT_SECRET }}

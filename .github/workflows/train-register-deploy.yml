@@ -40,8 +40,8 @@ jobs:
         ls -la data/ || echo "Data directory not found"
         echo "Checking notebooks directory:"
         ls -la notebooks/ || echo "Notebooks directory not found"
-        echo "Executing notebook..."
-        jupyter nbconvert --to notebook --execute notebooks/CarSales_Complete_Structured.ipynb --output output-train.ipynb
+        echo "Executing notebook from repository root..."
+        jupyter nbconvert --to notebook --execute notebooks/CarSales_Complete_Structured.ipynb --output output-train.ipynb --ExecutePreprocessor.working_directory=.
 
     - name: Azure ML deploy (best-effort)
       if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
